@@ -39,6 +39,16 @@
 				1, 0, 0, 0, 1,
 				0, 1, 1, 1, 0
 			];
+			var invArray = [		//First column stores id, second the amount
+				4, 2,
+				6, 7,
+				8, 1,
+				0, 0,
+				0, 0,
+				0, 0,
+				0, 0,
+				0, 0,
+			]
 			var hp = 100;
 			
 			//Load sprites
@@ -205,18 +215,60 @@
 			//Message handler
 			var hp = -1;
 			var money = -1;
+			var hunger = -1;
 			var gotResp = true;
+			const MsgState = {
+				NONE: 0,
+				QUERY_INFO: 1,
+				QUERY_INV: 2
+			}
+			var msgState = MsgState.NONE;
 			function HandleMessage(e) {
-				gotResp = true;
 				var data = new Uint8Array(e.data);
-				//Read in field
-				for(var i = 0; i < xTiles * yTiles; i++)
-					fieldArray[i] = data[i + 4];
-				alert (fieldArray);
-				//Read in stats
-				hp = data[xTiles * yTiles + 5];
-				money = data[xTiles * yTiles + 6];
-				money = data[xTiles * yTiles + 6];
+				if(msgState == MsgState.QUERY_INFO) {
+					//Read in field
+					for(var i = 0; i < xTiles * yTiles; i++)
+						fieldArray[i] = data[i + 4];
+					alert (fieldArray);
+					//Read in stats
+					hp = data[xTiles * yTiles + 6];
+					hunger = data[xTiles * yTiles + 7];
+					money = data[xTiles * yTiles + 8];
+					money += data[xTiles * yTiles + 9] << 16;
+					//Send next message
+					var currTime = new Date().getTime();
+					var userIdArray = Uint64ToUint8Array(userId);
+					var timestamp = Uint32ToUint8Array(currTime);
+					var invRequ =new Uint8Array([
+						 //User ID
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0],
+						 //Timestamp
+						 timestamp[0],
+						 timestamp[1],
+						 timestamp[2],
+						 timestamp[3],
+						 //Action ID
+						 0x08,
+						 0x00
+					]);
+					connection.send(invRequ);
+					lastRequTime = currTime;
+					msgState = MsgState.NONE;
+				}
+				else if (msgState == MsgState.QUERY_INV) {
+					//Copy inventory array
+					for (var i = 0; i < 16; i++)
+						invArray[i] = data[i];
+					//Finish response
+					gotResp = true;
+				}
 			}
 			
 			//InfoLoop
@@ -228,7 +280,7 @@
 				if(gotResp) {
 					//Send info request
 					var userIdArray = Uint64ToUint8Array(userId);
-					var timestamp = Uint32ToUint8Array(new Date().getTime());
+					var timestamp = Uint32ToUint8Array(currTime);
 					var infoRequ =new Uint8Array([
 						 //User ID
 						 userIdArray[0], 
@@ -249,30 +301,7 @@
 						 0x00
 					]);
 					connection.send(infoRequ);
-					//Send inventory request
-					var userIdArray = Uint64ToUint8Array(userId);
-					var timestamp = Uint32ToUint8Array(new Date().getTime());
-					var infoRequ =new Uint8Array([
-						 //User ID
-						 userIdArray[0], 
-						 userIdArray[0], 
-						 userIdArray[0], 
-						 userIdArray[0], 
-						 userIdArray[0],
-						 userIdArray[0], 
-						 userIdArray[0],
-						 userIdArray[0],
-						 //Timestamp
-						 timestamp[0],
-						 timestamp[1],
-						 timestamp[2],
-						 timestamp[3],
-						 //Action ID
-						 0x03,
-						 0x00
-					]);
-					connection.send(infoRequ);
-					//Update last request time
+					msgState = MsgState.QUERY_INFO;
 					lastRequTime = currTime;
 				}
 				//If too much time passes, kill the connection
@@ -293,8 +322,8 @@
 			
 			//Uint64 to Uint8Array (lil endian)
 			function Uint64ToUint8Array(val) {
-				var hi = Uint32ToUint8Array(val >> 32);
-				var lo = Uint32ToUint8Array(val & 4294967295);
+				var hi = Uint32ToUint8Array(val.hi);
+				var lo = Uint32ToUint8Array(val.lo);
 				var retArray = [];
 				for(var i = 0; i < 4; i++)
 					retArray.push(lo[i]);
