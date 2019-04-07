@@ -1,0 +1,77 @@
+body {
+	margin: 0px;
+	width: 100%;
+	height: 100%;
+	background-color: #004000;
+}
+
+h1 {
+	margin: 0;
+}
+
+#statusMenu {
+	position: fixed;
+	right: 0;
+	padding: 10px;
+	width: 140px;
+	height: 50px;
+	background-color: #008c00;
+	font-family: consolas;
+	color: #111111;
+	opacity: 0.8;
+	transition: opacity 0.2s;
+	box-shadow: 0px 0px 5px #000000;
+}
+
+#statusMenu:hover {
+	opacity: 1;
+}
+
+.initialStatusMenu {
+	top: -25px;
+}
+
+.openStatusMenu {
+	animation-name: openStatusMenu;
+	animation-duration: 1s;
+	top: 0px;
+}
+
+@keyframes openStatusMenu {
+	from {
+		top: -25px;
+	}
+	to {
+		top: 0px;
+	}
+}
+
+.closeStatusMenu {
+	animation-name: closeStatusMenu;
+	animation-duration: 1s;
+	top: -25px;
+}
+
+@keyframes closeStatusMenu {
+	from {
+		top: 0px;
+	}
+	to {
+		top: -25px;
+	}
+}
+
+#wrapper {
+	font-family: consolas;
+	width: 400px;
+	height: 100%;
+	color: #008c00;
+	background-color: #111111;
+	margin: auto;
+	box-shadow: 0px 0px 5px #000000;
+	text-align: center;
+}
+
+#gameCanvas {
+	border: solid 2px #008c00;
+}

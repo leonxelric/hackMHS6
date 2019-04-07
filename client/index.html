@@ -1,0 +1,333 @@
+<html>
+	<head>
+		<meta charset = "utf-8"/>
+		<title>Bot Monitor</title>
+		<link rel = "stylesheet" href = "main.css" ></link>
+	</head>
+	<body>
+		<div id = "statusMenu" class = "initialStatusMenu">
+			<b><span>Tick: </span></b><span>0</span>
+			<br/>
+			<b><span>Server Status: </span></b><span id = "serverStatus">No Connection</span>
+		</div>
+		<div id = "wrapper">
+			<h1>Bot Monitor</h1>
+			<span>Server Address: </span><input id = "serverAddr" type = "text" value = "0.0.0.0"/>
+			<br/>
+			<br/>
+			<span>User ID: </span><input id = "userId" type = "text" value = "0"/>
+			<br/>
+			<br/>
+			<button onclick = "Connect(this)">Connect</button>
+			<br/>
+			<br/>
+			<canvas id = "gameCanvas" width = "250px" height = "450px">
+				Your browser does not support HTML5 and cannot display this content.
+			</canvas>
+		</div>
+		<script>
+			//Document init
+			var xTiles = 5, yTiles = 5;
+			var tileSize = 50;
+			var gameCanvas = document.getElementById("gameCanvas");
+			var ctx = gameCanvas.getContext("2d");
+			//Game vars
+			var fieldArray = [
+				1, 2, 3, 4, 5,
+				6, 7, 8, 9, 0,
+				1, 0, 0, 0, 1,
+				1, 0, 0, 0, 1,
+				0, 1, 1, 1, 0
+			];
+			var hp = 100;
+			
+			//Load sprites
+			var sprites = [];
+			sprites[""] = new Image();
+			var spritesLoaded = 0;
+			function LoadImg(name) {
+				var img = new Image();
+				img.onload = function() {
+					sprites[name] = img;
+					//Load game if all sprites have been loaded
+					spritesLoaded++;
+					if(spritesLoaded == spriteNames.length)
+						Load();
+				}
+				img.src = "graphics/" + name + ".png";
+			}
+			var spriteNames = [
+				"player_icon",
+				"dirt",
+				"stone",
+				"ore",
+				"carrot",
+				"tree",
+				"grass",
+				"water",
+				"seed",
+				/*"sword_w",
+				"axe_w",
+				"shovel_w",
+				"pickaxe_w",
+				"scythe_w",
+				"stick",
+				"metal",
+				"sword_m",
+				"axe_m",
+				"shovel_m",
+				"pickaxe_m",
+				"scythe_m"*/
+			];
+			for(var i = 0; i < spriteNames.length; i++)
+				LoadImg(spriteNames[i]);
+			
+			//Update function
+			var tSpriteNames = [
+				"",
+				"player_icon",
+				"dirt",
+				"stone",
+				"ore",
+				"carrot",
+				"tree",
+				"grass",
+				"water",
+				"seed",
+				/*"sword_w",
+				"axe_w",
+				"shovel_w",
+				"pickaxe_w",
+				"scythe_w",
+				"stick",
+				"metal",
+				"sword_m",
+				"axe_m",
+				"shovel_m",
+				"pickaxe_m",
+				"scythe_m",*/
+			];
+			function Update() {
+				//Clear screen
+				ctx.clearRect(0, 0, xTiles * tileSize, yTiles * tileSize);
+				
+				//Draw terrain
+				for(var y = 0; y < yTiles; y++) {
+					for(var x = 0; x < xTiles; x++) {
+						var terrain = fieldArray[xTiles * y + x];
+						var tSprite = sprites[tSpriteNames[terrain]];
+						ctx.drawImage(tSprite, x * tileSize, y * tileSize);
+					}
+				}
+				
+				//Draw grid
+				ctx.strokeStyle = "#26ff26";
+				ctx.setLineDash([5, 5]);
+				for(var y = 0; y < yTiles - 1; y++) {
+					ctx.beginPath();
+					ctx.moveTo(0, y * tileSize + tileSize);
+					ctx.lineTo(xTiles * tileSize, y * tileSize + tileSize);
+					ctx.stroke();
+				}
+				for(var x = 0; x < xTiles - 1; x++) {
+					ctx.beginPath();
+					ctx.moveTo(x * tileSize + tileSize, 0);
+					ctx.lineTo(x * tileSize + tileSize, yTiles * tileSize);
+					ctx.stroke();
+				}
+				
+				//Draw inv slots
+				for(var x = 0; x < xTiles - 1; x++) {
+					ctx.beginPath();
+					ctx.moveTo(x * tileSize + tileSize, (yTiles + 1) * tileSize);
+					ctx.lineTo(x * tileSize + tileSize, (yTiles + 3) * tileSize);
+					ctx.stroke();
+				}
+				for(var y = 0; y < 3; y++) {
+					ctx.beginPath();
+					ctx.moveTo(0, (y + 6) * tileSize);
+					ctx.lineTo(xTiles * tileSize, (y + 6) * tileSize);
+					ctx.stroke();
+				}
+				
+				//Draw inv items icons
+				for(var y = 0; y < yTiles; y++) {
+					for(var x = 0; x < xTiles; x++) {
+						var terrain = fieldArray[xTiles * y + x];
+						var tSprite = sprites[tSpriteNames[terrain]];
+						ctx.drawImage(tSprite, x * tileSize, y * tileSize);
+					}
+				}
+				//Loop
+				window.requestAnimationFrame(Update);
+			}
+			
+			//Load function once we've loaded all assets
+			function Load() {
+				window.requestAnimationFrame(Update);
+			}
+			
+			//Connect function
+			var serverAddr;
+			var userId;
+			var connection;
+			var serverStatus = document.getElementById("serverStatus");
+			var statusMenu = document.getElementById("statusMenu");
+			var infoLoop;
+			const loopTime = 1000;
+			function Connect(button) {
+				//Disable button
+				button.disabled = true;
+				//Open web socket
+				serverStatus.innerText = "Connecting...";
+				serverAddr = document.getElementById("serverAddr").value;
+				userId = parseInt(document.getElementById("userId").value);
+				connection = new WebSocket("ws://" + serverAddr);
+				connection.binaryType = "arraybuffer";
+				//If successful
+				connection.onopen = function() {
+					button.disabled = false;
+					//Show that we're connected
+					serverStatus.innerText = "Connected";
+					statusMenu.className = "openStatusMenu";
+					//Start info loop
+					infoLoop = setInterval(InfoLoop, loopTime);
+				}
+				//If error
+				connection.onerror = function() {
+					serverStatus.innerText = "No Connection";
+					button.disabled = false;
+				}
+				//Messaging
+				connection.onmessage = HandleMessage;
+			}
+			
+			//Message handler
+			var hp = -1;
+			var money = -1;
+			var gotResp = true;
+			function HandleMessage(e) {
+				gotResp = true;
+				var data = new Uint8Array(e.data);
+				//Read in field
+				for(var i = 0; i < xTiles * yTiles; i++)
+					fieldArray[i] = data[i + 4];
+				alert (fieldArray);
+				//Read in stats
+				hp = data[xTiles * yTiles + 5];
+				money = data[xTiles * yTiles + 6];
+				money = data[xTiles * yTiles + 6];
+			}
+			
+			//InfoLoop
+			var lastRequTime = new Date().getTime();
+			const cutoffTime = 5000;
+			function InfoLoop() {
+				//Check if we got a response since sending our last request
+				var currTime = new Date().getTime();
+				if(gotResp) {
+					//Send info request
+					var userIdArray = Uint64ToUint8Array(userId);
+					var timestamp = Uint32ToUint8Array(new Date().getTime());
+					var infoRequ =new Uint8Array([
+						 //User ID
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0],
+						 //Timestamp
+						 timestamp[0],
+						 timestamp[1],
+						 timestamp[2],
+						 timestamp[3],
+						 //Action ID
+						 0x03,
+						 0x00
+					]);
+					connection.send(infoRequ);
+					//Send inventory request
+					var userIdArray = Uint64ToUint8Array(userId);
+					var timestamp = Uint32ToUint8Array(new Date().getTime());
+					var infoRequ =new Uint8Array([
+						 //User ID
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0], 
+						 userIdArray[0],
+						 userIdArray[0],
+						 //Timestamp
+						 timestamp[0],
+						 timestamp[1],
+						 timestamp[2],
+						 timestamp[3],
+						 //Action ID
+						 0x03,
+						 0x00
+					]);
+					connection.send(infoRequ);
+					//Update last request time
+					lastRequTime = currTime;
+				}
+				//If too much time passes, kill the connection
+				else if(currTime - lastRequTime > cutoffTime) {
+					//Show we're disconnected
+					serverStatus.innerText = "No Connection";
+					statusMenu.className = "closeStatusMenu";
+					//Kill connection
+					connection.close();
+					clearInterval(infoLoop);
+				}
+			}
+			
+			//Place block function
+			function PlaceBlock(x, y, blockId) {
+				fieldArray[xTiles * y + x] = blockId;
+			}
+			
+			//Uint64 to Uint8Array (lil endian)
+			function Uint64ToUint8Array(val) {
+				var hi = Uint32ToUint8Array(val >> 32);
+				var lo = Uint32ToUint8Array(val & 4294967295);
+				var retArray = [];
+				for(var i = 0; i < 4; i++)
+					retArray.push(lo[i]);
+				for(var i = 0; i < hi.length; i++)
+					retArray.push(hi[i]);
+				return new Uint8Array(retArray);
+			}
+			
+			//Uint32 to Uint8Array (lil endian)
+			function Uint32ToUint8Array(val) {
+				var retArray = new Uint8Array();
+				var hi = Uint16ToUint8Array(val >> 16);
+				var lo = Uint16ToUint8Array(val & 65535);
+				var retArray = [];
+				for(var i = 0; i < lo.length; i++)
+					retArray.push(lo[i]);
+				for(var i = 0; i < hi.length; i++)
+					retArray.push(hi[i]);
+				return new Uint8Array(retArray);
+			}
+			
+			//Uint16 to Uint8Array (lil endian)
+			function Uint16ToUint8Array(val) {
+				var retArray = new Uint8Array();
+				var hi = val >> 8;
+				var lo =val & 127;
+				var retArray = [];
+				for(var i = 0; i < lo.length; i++)
+					retArray.push(lo[i]);
+				for(var i = 0; i < hi.length; i++)
+					retArray.push(hi[i]);
+				return new Uint8Array(retArray);
+			}
+		</script>
+	</body>
+</html>
